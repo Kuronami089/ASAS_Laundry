@@ -1,0 +1,558 @@
+/**
+ * Skrip Interaktif ASAS Laundry (Vanilla JS — Bersih & Mudah Dijelaskan)
+ * ----------------------------------------------------------------------
+ * 1. Mobile Navigation Drawer berbasis native <dialog> + scroll-snap
+ * 2. Modal Konfirmasi Hapus Layanan berbasis native <dialog>
+ * 3. Kalkulasi Otomatis Total Tarif Transaksi (berat x harga_per_kg) dalam Rupiah
+ * 4. Toggle Lihat/Sembunyikan Password & tombol isi akun demo pada halaman Login
+ * 5. Sinkronisasi ARIA untuk validasi :user-invalid setelah interaksi
+ */
+
+(function () {
+  'use strict';
+
+  /* ==========================================================================
+     1. Helper Format Rupiah (sama dengan fungsi formatRupiah di PHP)
+     ========================================================================== */
+  function formatRupiah(nominal) {
+    const nilai = Math.round(Number(nominal) || 0);
+    return 'Rp\u00A0' + new Intl.NumberFormat('id-ID').format(nilai);
+  }
+
+  /* ==========================================================================
+     2. Mobile Navigation Drawer (modern-web-guidance: navigation-drawer)
+     ========================================================================== */
+  const drawer = document.getElementById('mobile-drawer');
+  const openDrawerBtn = document.getElementById('drawer-open');
+  const closeDrawerBtn = document.getElementById('drawer-close');
+
+  if (drawer && openDrawerBtn && closeDrawerBtn) {
+    const scroller = drawer.querySelector('.Drawer-scroller');
+    const sheet = drawer.querySelector('.Drawer-sheet');
+
+    async function openDrawer() {
+      if (drawer.open) return;
+      drawer.showModal();
+
+      if (!CSS.supports('scroll-initial-target', 'nearest')) {
+        scroller.scrollTo({ left: scroller.offsetWidth, behavior: 'instant' });
+        await new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve))
+        );
+      }
+
+      scroller.scrollTo({ left: 0, behavior: 'auto' });
+    }
+
+    function closeDrawer() {
+      if (!drawer.open) return;
+      scroller.scrollTo({ left: scroller.offsetWidth, behavior: 'auto' });
+    }
+
+    const visibleThreshold = 1 / Math.max(window.innerWidth, 320);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries.at(-1);
+        if (!entry) return;
+        if (entry.intersectionRatio < visibleThreshold && drawer.open) {
+          drawer.close();
+          openDrawerBtn.setAttribute('aria-expanded', 'false');
+        }
+        if (entry.intersectionRatio === 1) {
+          openDrawerBtn.setAttribute('aria-expanded', 'true');
+        }
+      },
+      { root: drawer, threshold: [visibleThreshold, 1] }
+    );
+    observer.observe(sheet);
+
+    if (!CSS.supports('animation-timeline: scroll()')) {
+      scroller.addEventListener('scroll', () => {
+        const ratio = Math.max(0, Math.min(1, 1 - scroller.scrollLeft / Math.max(sheet.offsetWidth, 1)));
+        drawer.style.setProperty('--drawer-backdrop', String(ratio));
+      }, { passive: true });
+    }
+
+    openDrawerBtn.addEventListener('click', openDrawer);
+    closeDrawerBtn.addEventListener('click', closeDrawer);
+
+    drawer.addEventListener('click', (event) => {
+      if (!sheet.contains(event.target)) {
+        closeDrawer();
+      }
+    });
+
+    drawer.addEventListener('cancel', (event) => {
+      if (event.cancelable) {
+        event.preventDefault();
+        closeDrawer();
+      }
+    });
+  }
+
+  /* ==========================================================================
+     3. Helper Light-Dismiss Fallback untuk Native <dialog>
+     ========================================================================== */
+  function attachDialogFallback(dialog) {
+    dialog.addEventListener('close', () => {
+      dialog.returnValue = '';
+    });
+
+    // Fallback klik di luar modal untuk browser tanpa dukungan closedby="any"
+    if (!('closedBy' in HTMLDialogElement.prototype)) {
+      const isOutside = (e, dlg) => {
+        const r = dlg.getBoundingClientRect();
+        return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+      };
+      let pressedOutside = false;
+      dialog.addEventListener('pointerdown', (e) => {
+        pressedOutside = isOutside(e, dialog);
+      });
+      dialog.addEventListener('pointerup', (e) => {
+        if (pressedOutside && isOutside(e, dialog)) {
+          dialog.close();
+        }
+      });
+    }
+  }
+
+  /* ==========================================================================
+     3a. Modal Konfirmasi Hapus Layanan (layanan/index.blade.php)
+     ========================================================================== */
+  const deleteDialog = document.getElementById('confirm-delete-dialog');
+  if (deleteDialog) {
+    const deleteNameEl = document.getElementById('delete-service-name');
+    const deleteForm = document.getElementById('delete-service-form');
+    const deleteTriggers = document.querySelectorAll('[data-delete-service-action]');
+
+    deleteTriggers.forEach((button) => {
+      button.addEventListener('click', () => {
+        if (deleteNameEl) {
+          deleteNameEl.textContent = button.dataset.deleteServiceName || 'layanan ini';
+        }
+        if (deleteForm && button.dataset.deleteServiceAction) {
+          deleteForm.action = button.dataset.deleteServiceAction;
+        }
+        deleteDialog.showModal();
+      });
+    });
+
+    attachDialogFallback(deleteDialog);
+  }
+
+  /* ==========================================================================
+     3b. Modal Konfirmasi Hapus Rekap Transaksi (rekap/index.blade.php)
+     ========================================================================== */
+  const deleteTxDialog = document.getElementById('confirm-delete-tx-dialog');
+  if (deleteTxDialog) {
+    const deleteTxLabelEl = document.getElementById('delete-tx-label');
+    const deleteTxForm = document.getElementById('delete-tx-form');
+    const deleteTxTriggers = document.querySelectorAll('[data-delete-tx-action]');
+
+    deleteTxTriggers.forEach((button) => {
+      button.addEventListener('click', () => {
+        if (deleteTxLabelEl) {
+          deleteTxLabelEl.textContent = button.dataset.deleteTxLabel || 'pesanan ini';
+        }
+        if (deleteTxForm && button.dataset.deleteTxAction) {
+          deleteTxForm.action = button.dataset.deleteTxAction;
+        }
+        deleteTxDialog.showModal();
+      });
+    });
+
+    attachDialogFallback(deleteTxDialog);
+  }
+
+  /* ==========================================================================
+     4. Kalkulator Tarif Otomatis pada Halaman Transaksi (berat x harga_per_kg)
+     ========================================================================== */
+  const serviceSelect = document.getElementById('layanan_id');
+  const weightInput = document.getElementById('berat_kg');
+  const calcRateEl = document.getElementById('calc-rate');
+  const calcEstEl = document.getElementById('calc-estimasi');
+  const calcTotalEl = document.getElementById('calc-total');
+
+  function updateTransactionCalculation() {
+    if (!serviceSelect || !weightInput || !calcTotalEl) return;
+
+    const selected = serviceSelect.options[serviceSelect.selectedIndex];
+    const harga = Number(selected?.dataset.harga || 0);
+    const estimasi = selected?.dataset.estimasi || '-';
+    const berat = Number(weightInput.value || 0);
+
+    if (calcRateEl) {
+      calcRateEl.textContent = harga > 0 ? formatRupiah(harga) + ' / kg' : '-';
+    }
+    if (calcEstEl) {
+      calcEstEl.textContent = estimasi;
+    }
+
+    const total = harga > 0 && berat > 0 ? Math.round(harga * berat) : 0;
+    calcTotalEl.textContent = formatRupiah(total);
+  }
+
+  if (serviceSelect && weightInput) {
+    serviceSelect.addEventListener('change', updateTransactionCalculation);
+    weightInput.addEventListener('input', updateTransactionCalculation);
+    updateTransactionCalculation();
+  }
+
+  /* ==========================================================================
+     5. Toggle Tampilkan/Sembunyikan Kata Sandi & Isi Akun Demo (Login)
+     ========================================================================== */
+  const togglePwdBtn = document.getElementById('toggle-password');
+  const pwdInput = document.getElementById('password');
+
+  if (togglePwdBtn && pwdInput) {
+    togglePwdBtn.addEventListener('click', () => {
+      const showing = pwdInput.type === 'text';
+      pwdInput.type = showing ? 'password' : 'text';
+      togglePwdBtn.setAttribute('aria-pressed', String(!showing));
+      togglePwdBtn.textContent = showing ? 'Tampilkan' : 'Sembunyikan';
+      togglePwdBtn.setAttribute(
+        'aria-label',
+        showing ? 'Tampilkan kata sandi' : 'Sembunyikan kata sandi'
+      );
+    });
+  }
+
+  document.querySelectorAll('[data-demo-user]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const userField = document.getElementById('username');
+      const passField = document.getElementById('password');
+      if (userField && passField) {
+        userField.value = btn.dataset.demoUser || '';
+        passField.value = btn.dataset.demoPass || '';
+        userField.dispatchEvent(new Event('input', { bubbles: true }));
+        passField.dispatchEvent(new Event('input', { bubbles: true }));
+        userField.focus();
+      }
+    });
+  });
+
+  /* ==========================================================================
+     6. Tombol Cetak Laporan (Rekap) & Cetak Struk (struk.php)
+     ========================================================================== */
+  const printBtn = document.getElementById('print-report-btn');
+  if (printBtn) {
+    printBtn.addEventListener('click', () => window.print());
+  }
+
+  const printReceiptBtn = document.getElementById('print-receipt-btn');
+  if (printReceiptBtn) {
+    printReceiptBtn.addEventListener('click', () => window.print());
+  }
+
+  /* ==========================================================================
+     7. Sinkronisasi ARIA & Validasi :user-invalid (modern-web-guidance)
+     ========================================================================== */
+  const supportsUserInvalid = CSS.supports('selector(:user-invalid)');
+  const dirtyState = new WeakMap();
+  const flagged = new WeakSet();
+  const announced = new WeakSet();
+
+  const announcer = document.createElement('div');
+  announcer.setAttribute('aria-live', 'polite');
+  announcer.classList.add('visually-hidden');
+  document.body.append(announcer);
+
+  let announceTimer;
+  let announcedField;
+
+  function linkError(el, shown) {
+    const errorId = el.dataset.error;
+    if (!errorId) return;
+    const ids = (el.getAttribute('aria-describedby') || '')
+      .split(/\s+/)
+      .filter((id) => id && id !== errorId);
+    if (shown) ids.push(errorId);
+    if (ids.length) {
+      el.setAttribute('aria-describedby', ids.join(' '));
+    } else {
+      el.removeAttribute('aria-describedby');
+    }
+  }
+
+  function announceError(el) {
+    const errorEl = document.getElementById(el.dataset.error || '');
+    if (!errorEl) return;
+    const label = el.labels?.[0] ? el.labels[0].textContent.trim() + ': ' : '';
+    clearTimeout(announceTimer);
+    announcer.textContent = '';
+    announcedField = el;
+    announceTimer = setTimeout(() => {
+      announcer.textContent = label + errorEl.textContent.trim();
+    }, 500);
+  }
+
+  function syncAria(el, shouldAnnounce = false) {
+    if (!el.matches?.('input, select, textarea')) return;
+
+    let isInvalid = false;
+    if (supportsUserInvalid) {
+      isInvalid = el.matches(':user-invalid');
+    } else {
+      const st = dirtyState.get(el);
+      isInvalid = Boolean(st && st.hasBlurred && st.hasInteracted && !el.validity.valid);
+      el.classList.toggle('user-invalid-fallback', isInvalid);
+    }
+
+    if (isInvalid) {
+      if (shouldAnnounce && !announced.has(el)) {
+        announceError(el);
+        announced.add(el);
+      }
+      el.setAttribute('aria-invalid', 'true');
+      linkError(el, true);
+      flagged.add(el);
+    } else if (flagged.has(el) || el.getAttribute('aria-invalid') !== 'true') {
+      el.setAttribute('aria-invalid', 'false');
+      linkError(el, false);
+      flagged.delete(el);
+      announced.delete(el);
+      if (announcedField === el) {
+        clearTimeout(announceTimer);
+        announcer.textContent = '';
+      }
+    }
+  }
+
+  document.querySelectorAll('input, select, textarea').forEach((el) => {
+    if (el.type === 'hidden') return;
+    syncAria(el);
+  });
+
+  document.addEventListener('blur', (e) => {
+    const el = e.target;
+    if (!supportsUserInvalid && el.matches?.('input, select, textarea')) {
+      const st = dirtyState.get(el) || { hasInteracted: false, hasBlurred: false };
+      st.hasBlurred = true;
+      dirtyState.set(el, st);
+    }
+    syncAria(el, true);
+  }, true);
+
+  document.addEventListener('input', (e) => {
+    const el = e.target;
+    if (!supportsUserInvalid && el.matches?.('input, select, textarea')) {
+      const st = dirtyState.get(el) || { hasInteracted: false, hasBlurred: false };
+      st.hasInteracted = true;
+      dirtyState.set(el, st);
+    }
+    if (el.hasAttribute?.('aria-invalid')) {
+      syncAria(el);
+    }
+  });
+
+  document.addEventListener('change', (e) => {
+    const el = e.target;
+    if (!supportsUserInvalid && el.matches?.('input, select, textarea')) {
+      const st = dirtyState.get(el) || { hasInteracted: false, hasBlurred: false };
+      st.hasInteracted = true;
+      st.hasBlurred = true;
+      dirtyState.set(el, st);
+    }
+    syncAria(el, true);
+  }, true);
+
+  document.addEventListener('invalid', (e) => {
+    const el = e.target;
+    if (!supportsUserInvalid) {
+      dirtyState.set(el, { hasInteracted: true, hasBlurred: true });
+    }
+    announced.add(el);
+    syncAria(el);
+  }, true);
+
+  /* ==========================================================================
+     8. Animasi Teks Ink Bleed (diadaptasi dari InkBleedComponent ke Vanilla JS)
+     --------------------------------------------------------------------------
+     Setiap kata meresap seperti tinta di atas kertas serat (feTurbulence +
+     feDisplacementMap + feGaussianBlur + feComponentTransfer), lalu mengering
+     menjadi huruf yang tajam. Hover pada kata membuatnya kembali sedikit basah.
+     ========================================================================== */
+  function initInkBleedText() {
+    const roots = document.querySelectorAll('[data-ink-bleed]');
+    if (!roots.length) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const clamp = (v, min = 0, max = 1) => Math.min(max, Math.max(min, v));
+    const easeSoak = (x) => 1 - Math.pow(1 - x, 3);
+
+    const config = {
+      spread: 12,
+      roughness: 10,
+      grain: 1.0,
+      halo: 0.5,
+      duration: 1.6,
+      delay: 0.18,
+      stagger: 0.14,
+      hoverStrength: 0.55,
+    };
+
+    const createSvgEl = (tag, attrs = {}) => {
+      const el = document.createElementNS(SVG_NS, tag);
+      for (const [k, v] of Object.entries(attrs)) {
+        el.setAttribute(k, String(v));
+      }
+      return el;
+    };
+
+    roots.forEach((root, rootIndex) => {
+      const wordEls = Array.from(root.querySelectorAll('[data-ink-word]'));
+      if (!wordEls.length) return;
+
+      const svg = createSvgEl('svg', {
+        class: 'ink-bleed__defs',
+        width: '0',
+        height: '0',
+        'aria-hidden': 'true',
+      });
+      const defs = createSvgEl('defs');
+      svg.append(defs);
+      root.prepend(svg);
+
+      const units = wordEls.map((el, i) => {
+        const fid = `ink-bleed-${rootIndex}-${i}`;
+        const filter = createSvgEl('filter', {
+          id: fid,
+          x: '-40%',
+          y: '-60%',
+          width: '180%',
+          height: '220%',
+          'color-interpolation-filters': 'sRGB',
+        });
+
+        const turb = createSvgEl('feTurbulence', {
+          type: 'fractalNoise',
+          baseFrequency: '0.08',
+          numOctaves: '2',
+          seed: String(i * 7 + 3),
+          result: 'noise',
+        });
+        const disp = createSvgEl('feDisplacementMap', {
+          in: 'SourceGraphic',
+          in2: 'noise',
+          scale: '0',
+          xChannelSelector: 'R',
+          yChannelSelector: 'G',
+          result: 'd',
+        });
+        const blur = createSvgEl('feGaussianBlur', {
+          in: 'd',
+          stdDeviation: '0',
+          result: 'b',
+        });
+
+        const haloTransfer = createSvgEl('feComponentTransfer', { in: 'b', result: 'halo' });
+        const haloFunc = createSvgEl('feFuncA', { type: 'linear', slope: '0', intercept: '0' });
+        haloTransfer.append(haloFunc);
+
+        const inkTransfer = createSvgEl('feComponentTransfer', { in: 'b', result: 'ink' });
+        const inkFunc = createSvgEl('feFuncA', { type: 'linear', slope: '1', intercept: '0' });
+        inkTransfer.append(inkFunc);
+
+        const merge = createSvgEl('feMerge');
+        merge.append(createSvgEl('feMergeNode', { in: 'halo' }));
+        merge.append(createSvgEl('feMergeNode', { in: 'ink' }));
+
+        filter.append(turb, disp, blur, haloTransfer, inkTransfer, merge);
+        defs.append(filter);
+
+        el.setAttribute('aria-hidden', 'true');
+        el.style.opacity = '0';
+        el.style.filter = `url(#${fid})`;
+
+        return {
+          el,
+          fid,
+          done: false,
+          turb,
+          disp,
+          blur,
+          ink: inkFunc,
+          halo: haloFunc,
+        };
+      });
+
+      const hovers = new Map();
+      const startTime = performance.now();
+      let rafId = 0;
+
+      const tick = (now) => {
+        const fontSize = parseFloat(getComputedStyle(root).fontSize) || 34;
+        const elapsed = (now - startTime) / 1000;
+        let hasActiveWork = false;
+
+        units.forEach((u, idx) => {
+          const local = elapsed - config.delay - idx * config.stagger;
+          let progress = easeSoak(clamp(local / config.duration));
+
+          const hoverStart = hovers.get(idx);
+          if (hoverStart !== undefined) {
+            const h = (now - hoverStart) / 1100;
+            if (h >= 1) {
+              hovers.delete(idx);
+            } else {
+              const wet =
+                config.hoverStrength *
+                (h < 0.18 ? easeSoak(h / 0.18) : 1 - easeSoak((h - 0.18) / 0.82));
+              progress = Math.min(progress, 1 - wet);
+            }
+          }
+
+          if (progress >= 1 && local > 0) {
+            if (!u.done) {
+              u.done = true;
+              u.el.style.filter = 'none';
+              u.el.style.opacity = '1';
+            }
+            return;
+          }
+
+          hasActiveWork = true;
+          if (u.done) {
+            u.done = false;
+            u.el.style.filter = `url(#${u.fid})`;
+          }
+
+          const q = 1 - progress;
+          u.el.style.opacity = String(clamp(local / Math.max(0.05, config.duration * 0.12)));
+          u.turb.setAttribute('baseFrequency', ((9 * config.grain) / fontSize).toFixed(4));
+          u.disp.setAttribute('scale', ((q * config.roughness * fontSize) / 60).toFixed(2));
+          u.blur.setAttribute('stdDeviation', ((q * config.spread * fontSize) / 100).toFixed(2));
+          u.ink.setAttribute('slope', (1 + q * 16).toFixed(3));
+          u.ink.setAttribute('intercept', (-q * 6).toFixed(3));
+          u.halo.setAttribute('slope', (q * config.halo * 1.1).toFixed(3));
+        });
+
+        if (hasActiveWork || hovers.size > 0) {
+          rafId = requestAnimationFrame(tick);
+        } else {
+          rafId = 0;
+        }
+      };
+
+      const ensureLoop = () => {
+        if (!rafId) {
+          rafId = requestAnimationFrame(tick);
+        }
+      };
+
+      units.forEach((u, idx) => {
+        u.el.addEventListener('pointerenter', () => {
+          if (u.done && !hovers.has(idx)) {
+            hovers.set(idx, performance.now());
+            ensureLoop();
+          }
+        });
+      });
+
+      ensureLoop();
+    });
+  }
+
+  initInkBleedText();
+})();

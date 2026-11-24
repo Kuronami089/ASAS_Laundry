@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ASAS Laundry | Sistem Informasi Manajemen Laundry</title>
+  <meta name="description" content="Demo interaktif Sistem Informasi Manajemen Laundry (ASAS Laundry) untuk role Admin dan Kasir.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500&family=Lora:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+  <div id="app-root"></div>
+
+  <!-- Dialog Konfirmasi Hapus (dipakai bersama untuk Layanan & Rekap Transaksi) -->
+  <dialog id="demo-confirm-dialog" class="confirm-dialog" aria-labelledby="demo-dialog-title" closedby="any">
+    <h1 id="demo-dialog-title" class="confirm-dialog__title">Konfirmasi hapus</h1>
+    <p id="demo-dialog-body" class="confirm-dialog__body"></p>
+    <div class="confirm-dialog__actions">
+      <button type="button" id="demo-dialog-cancel" class="btn btn--quiet" autofocus>Batal</button>
+      <button type="button" id="demo-dialog-confirm" class="btn btn--danger">Ya, hapus</button>
+    </div>
+  </dialog>
+
+  <script src="demo.js" defer></script>
+</body>
+</html>
