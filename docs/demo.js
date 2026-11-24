@@ -459,6 +459,7 @@
             </span>
             <span class="brand-mark__text">
               <span class="brand-mark__name">ASAS Laundry</span>
+              <span class="brand-mark__sub">Manajemen Operasional</span>
             </span>
           </a>
           <nav aria-label="Menu aplikasi">${navMarkup}</nav>
