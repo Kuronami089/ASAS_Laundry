@@ -60,4 +60,13 @@
   --color-dock-item-hover: oklch(92.5% 0.036 160);
   --color-dock-ink: oklch(21% 0.025 170);
   --color-dock-ink-muted: oklch(44% 0.026 165);
+  --color-chart-track: oklch(91.5% 0.018 150);
+  --color-chart-1-a: oklch(44% 0.13 160);
+  --color-chart-1-b: oklch(67% 0.14 156);
+  --color-chart-2-a: oklch(39% 0.10 186);
+  --color-chart-2-b: oklch(62% 0.11 176);
+  --color-chart-3-a: oklch(62% 0.14 78);
+  --color-chart-3-b: oklch(78% 0.13 88);
+  --color-chart-4-a: oklch(52% 0.11 132);
+  --color-chart-4-b: oklch(72% 0.10 136);
 }

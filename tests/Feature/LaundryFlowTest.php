@@ -53,12 +53,15 @@ class LaundryFlowTest extends TestCase
             'password' => 'admin123',
         ])->assertRedirect('/dashboard');
 
-        // Dashboard menampilkan 14 transaksi & total Rp 636.000
+        // Dashboard menampilkan 14 transaksi, total Rp 636.000, StatsSection & Donut Chart
         $this->get('/dashboard')
             ->assertOk()
             ->assertSee('Faqih Rachman')
             ->assertSee('Data Layanan')
-            ->assertSee('636.000');
+            ->assertSee('636.000')
+            ->assertSee('data-stats-showcase', false)
+            ->assertSee('data-insight-donut', false)
+            ->assertSee('Pendapatan per layanan');
 
         // Validasi harga negatif ditolak
         $this->from('/layanan')

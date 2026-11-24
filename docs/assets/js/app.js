@@ -575,4 +575,178 @@
   }
 
   initInkBleedText();
+
+  /* ==========================================================================
+     9. Animasi Count-Up Statistik Dashboard (StatsSection — easeOutExpo)
+     ========================================================================== */
+  function initStatsShowcase() {
+    const container = document.querySelector('[data-stats-showcase]');
+    if (!container) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const counters = Array.from(container.querySelectorAll('[data-count-to]'));
+    if (!counters.length) return;
+
+    const easeOutExpo = (t) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t));
+    const durationMs = 1350;
+
+    const runAnimation = () => {
+      const start = performance.now();
+      const tick = (now) => {
+        const progress = Math.min((now - start) / durationMs, 1);
+        const eased = easeOutExpo(progress);
+
+        counters.forEach((el) => {
+          const target = Number(el.dataset.countTo || 0);
+          const fmt = el.dataset.countFormat || 'int';
+          const current = Math.round(eased * target);
+          el.textContent = fmt === 'rupiah' ? formatRupiah(current) : String(current);
+        });
+
+        if (progress < 1) {
+          requestAnimationFrame(tick);
+        }
+      };
+      requestAnimationFrame(tick);
+    };
+
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((e) => e.isIntersecting)) {
+            io.disconnect();
+            runAnimation();
+          }
+        },
+        { threshold: 0.2 }
+      );
+      io.observe(container);
+    } else {
+      runAnimation();
+    }
+  }
+
+  /* ==========================================================================
+     10. Grafik Donut Bergradasi Interaktif (InteractiveInsightDonut)
+     ========================================================================== */
+  function initInsightDonut() {
+    const wrap = document.querySelector('[data-insight-donut]');
+    if (!wrap) return;
+
+    let rawItems = [];
+    try {
+      rawItems = JSON.parse(wrap.dataset.donutItems || '[]');
+    } catch (_) {
+      return;
+    }
+
+    const items = rawItems.filter((item) => Number(item.value) > 0);
+    const total = items.reduce((sum, item) => sum + Number(item.value), 0);
+    const totalOrders = items.reduce((sum, item) => sum + Number(item.orders || 0), 0);
+    if (!items.length || total <= 0) return;
+
+    const arcsGroup = wrap.querySelector('[data-donut-arcs]');
+    const labelEl = wrap.querySelector('[data-donut-label]');
+    const valueEl = wrap.querySelector('[data-donut-value]');
+    const shareEl = wrap.querySelector('[data-donut-share]');
+    const legendBtns = Array.from(wrap.querySelectorAll('[data-donut-index]'));
+    if (!arcsGroup) return;
+
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const cx = 130;
+    const cy = 130;
+    const radius = 102;
+    const gapDeg = items.length > 1 ? 14 : 0;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    let angleCursor = -90;
+    const arcEls = [];
+
+    items.forEach((seg, idx) => {
+      const share = Number(seg.value) / total;
+      const sweep = Math.max(4, share * 360 - gapDeg);
+      const startDeg = angleCursor + gapDeg / 2;
+      const endDeg = startDeg + sweep;
+      angleCursor += share * 360;
+
+      const startRad = (startDeg * Math.PI) / 180;
+      const endRad = (endDeg * Math.PI) / 180;
+      const x1 = cx + radius * Math.cos(startRad);
+      const y1 = cy + radius * Math.sin(startRad);
+      const x2 = cx + radius * Math.cos(endRad);
+      const y2 = cy + radius * Math.sin(endRad);
+      const largeArc = sweep > 180 ? 1 : 0;
+
+      const path = document.createElementNS(SVG_NS, 'path');
+      path.setAttribute(
+        'd',
+        `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${radius} ${radius} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`
+      );
+      path.setAttribute('class', 'donut-arc');
+      path.setAttribute('stroke', `url(#dash-grad-${idx % 4})`);
+      path.setAttribute('tabindex', '0');
+      path.setAttribute('role', 'button');
+      path.setAttribute(
+        'aria-label',
+        `${seg.name}: ${formatRupiah(seg.value)} (${(share * 100).toFixed(1)} persen)`
+      );
+
+      arcsGroup.append(path);
+      arcEls.push(path);
+
+      if (!reduced && typeof path.getTotalLength === 'function') {
+        const len = path.getTotalLength();
+        path.style.strokeDasharray = `${len}`;
+        path.style.strokeDashoffset = `${len}`;
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            path.style.transition =
+              'stroke-dashoffset 820ms cubic-bezier(0.16, 1, 0.3, 1), opacity 220ms cubic-bezier(0.16, 1, 0.3, 1), stroke-width 220ms cubic-bezier(0.16, 1, 0.3, 1)';
+            path.style.strokeDashoffset = '0';
+          }, 90 + idx * 120);
+        });
+      }
+    });
+
+    const setHoverState = (activeIdx) => {
+      const validIdx = activeIdx !== null && items[activeIdx] ? activeIdx : null;
+      arcEls.forEach((el, i) => {
+        el.classList.toggle('is-active', validIdx === i);
+        el.classList.toggle('is-dimmed', validIdx !== null && validIdx !== i);
+      });
+      legendBtns.forEach((btn) => {
+        btn.classList.toggle('is-active', validIdx !== null && Number(btn.dataset.donutIndex) === validIdx);
+      });
+
+      if (validIdx !== null) {
+        const seg = items[validIdx];
+        const pct = ((Number(seg.value) / total) * 100).toFixed(1).replace('.', ',');
+        if (labelEl) labelEl.textContent = seg.name;
+        if (valueEl) valueEl.textContent = formatRupiah(seg.value);
+        if (shareEl) shareEl.textContent = `${pct}% (${seg.orders} order)`;
+      } else {
+        if (labelEl) labelEl.textContent = 'Total pendapatan';
+        if (valueEl) valueEl.textContent = formatRupiah(total);
+        if (shareEl) shareEl.textContent = `${totalOrders} order`;
+      }
+    };
+
+    arcEls.forEach((el, idx) => {
+      el.addEventListener('pointerenter', () => setHoverState(idx));
+      el.addEventListener('pointerleave', () => setHoverState(null));
+      el.addEventListener('focus', () => setHoverState(idx));
+      el.addEventListener('blur', () => setHoverState(null));
+    });
+
+    legendBtns.forEach((btn) => {
+      const idx = Number(btn.dataset.donutIndex);
+      btn.addEventListener('pointerenter', () => setHoverState(idx));
+      btn.addEventListener('pointerleave', () => setHoverState(null));
+      btn.addEventListener('focus', () => setHoverState(idx));
+      btn.addEventListener('blur', () => setHoverState(null));
+    });
+  }
+
+  initStatsShowcase();
+  initInsightDonut();
 })();

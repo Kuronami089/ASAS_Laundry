@@ -512,11 +512,218 @@
     });
   }
 
+  function initDashboardStats() {
+    const container = root.querySelector('[data-stats-showcase]');
+    if (!container) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const counters = Array.from(container.querySelectorAll('[data-count-to]'));
+    if (!counters.length) return;
+
+    const easeOutExpo = (t) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t));
+    const durationMs = 1350;
+    const start = performance.now();
+
+    const tick = (now) => {
+      const progress = Math.min((now - start) / durationMs, 1);
+      const eased = easeOutExpo(progress);
+
+      counters.forEach((el) => {
+        const target = Number(el.dataset.countTo || 0);
+        const fmt = el.dataset.countFormat || 'int';
+        const current = Math.round(eased * target);
+        el.textContent = fmt === 'rupiah' ? formatRupiah(current) : String(current);
+      });
+
+      if (progress < 1) {
+        requestAnimationFrame(tick);
+      }
+    };
+    requestAnimationFrame(tick);
+  }
+
+  function initDashboardDonut(rawItems) {
+    const wrap = root.querySelector('[data-insight-donut]');
+    if (!wrap) return;
+
+    const items = rawItems.filter((item) => Number(item.value) > 0);
+    const total = items.reduce((sum, item) => sum + Number(item.value), 0);
+    const totalOrders = items.reduce((sum, item) => sum + Number(item.orders || 0), 0);
+    if (!items.length || total <= 0) return;
+
+    const arcsGroup = wrap.querySelector('[data-donut-arcs]');
+    const labelEl = wrap.querySelector('[data-donut-label]');
+    const valueEl = wrap.querySelector('[data-donut-value]');
+    const shareEl = wrap.querySelector('[data-donut-share]');
+    const legendBtns = Array.from(wrap.querySelectorAll('[data-donut-index]'));
+    if (!arcsGroup) return;
+
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const cx = 130;
+    const cy = 130;
+    const radius = 102;
+    const gapDeg = items.length > 1 ? 14 : 0;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    let angleCursor = -90;
+    const arcEls = [];
+
+    items.forEach((seg, idx) => {
+      const share = Number(seg.value) / total;
+      const sweep = Math.max(4, share * 360 - gapDeg);
+      const startDeg = angleCursor + gapDeg / 2;
+      const endDeg = startDeg + sweep;
+      angleCursor += share * 360;
+
+      const startRad = (startDeg * Math.PI) / 180;
+      const endRad = (endDeg * Math.PI) / 180;
+      const x1 = cx + radius * Math.cos(startRad);
+      const y1 = cy + radius * Math.sin(startRad);
+      const x2 = cx + radius * Math.cos(endRad);
+      const y2 = cy + radius * Math.sin(endRad);
+      const largeArc = sweep > 180 ? 1 : 0;
+
+      const path = document.createElementNS(SVG_NS, 'path');
+      path.setAttribute(
+        'd',
+        `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${radius} ${radius} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`
+      );
+      path.setAttribute('class', 'donut-arc');
+      path.setAttribute('stroke', `url(#dash-grad-${idx % 4})`);
+      path.setAttribute('tabindex', '0');
+      path.setAttribute('role', 'button');
+      path.setAttribute(
+        'aria-label',
+        `${seg.name}: ${formatRupiah(seg.value)} (${(share * 100).toFixed(1)} persen)`
+      );
+
+      arcsGroup.append(path);
+      arcEls.push(path);
+
+      if (!reduced && typeof path.getTotalLength === 'function') {
+        const len = path.getTotalLength();
+        path.style.strokeDasharray = `${len}`;
+        path.style.strokeDashoffset = `${len}`;
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            path.style.transition =
+              'stroke-dashoffset 820ms cubic-bezier(0.16, 1, 0.3, 1), opacity 220ms cubic-bezier(0.16, 1, 0.3, 1), stroke-width 220ms cubic-bezier(0.16, 1, 0.3, 1)';
+            path.style.strokeDashoffset = '0';
+          }, 90 + idx * 120);
+        });
+      }
+    });
+
+    const setHoverState = (activeIdx) => {
+      const validIdx = activeIdx !== null && items[activeIdx] ? activeIdx : null;
+      arcEls.forEach((el, i) => {
+        el.classList.toggle('is-active', validIdx === i);
+        el.classList.toggle('is-dimmed', validIdx !== null && validIdx !== i);
+      });
+      legendBtns.forEach((btn) => {
+        btn.classList.toggle('is-active', validIdx !== null && Number(btn.dataset.donutIndex) === validIdx);
+      });
+
+      if (validIdx !== null) {
+        const seg = items[validIdx];
+        const pct = ((Number(seg.value) / total) * 100).toFixed(1).replace('.', ',');
+        if (labelEl) labelEl.textContent = seg.name;
+        if (valueEl) valueEl.textContent = formatRupiah(seg.value);
+        if (shareEl) shareEl.textContent = `${pct}% (${seg.orders} order)`;
+      } else {
+        if (labelEl) labelEl.textContent = 'Total pendapatan';
+        if (valueEl) valueEl.textContent = formatRupiah(total);
+        if (shareEl) shareEl.textContent = `${totalOrders} order`;
+      }
+    };
+
+    arcEls.forEach((el, idx) => {
+      el.addEventListener('pointerenter', () => setHoverState(idx));
+      el.addEventListener('pointerleave', () => setHoverState(null));
+      el.addEventListener('focus', () => setHoverState(idx));
+      el.addEventListener('blur', () => setHoverState(null));
+    });
+
+    legendBtns.forEach((btn) => {
+      const idx = Number(btn.dataset.donutIndex);
+      btn.addEventListener('pointerenter', () => setHoverState(idx));
+      btn.addEventListener('pointerleave', () => setHoverState(null));
+      btn.addEventListener('focus', () => setHoverState(idx));
+      btn.addEventListener('blur', () => setHoverState(null));
+    });
+  }
+
   function renderDashboard() {
     const total = db.transaksi.length;
     const proses = db.transaksi.filter((t) => t.status === 'Proses');
     const selesaiCount = total - proses.length;
     const pendapatan = db.transaksi.reduce((acc, t) => acc + t.total, 0);
+
+    const distribusiLayanan = db.layanan
+      .map((l) => {
+        const matching = db.transaksi.filter((t) => t.layanan_id === l.id);
+        return {
+          name: l.nama_layanan,
+          orders: matching.length,
+          value: matching.reduce((sum, t) => sum + t.total, 0),
+        };
+      })
+      .sort((a, b) => b.value - a.value);
+
+    const donutHtml = pendapatan <= 0
+      ? '<div class="empty-state"><p class="empty-state__title">Belum ada pendapatan tercatat</p></div>'
+      : `
+        <div class="donut-wrap" data-insight-donut>
+          <div class="donut-stage">
+            <svg class="donut-svg" viewBox="0 0 260 260" role="img" aria-label="Grafik lingkaran distribusi pendapatan per jenis layanan">
+              <defs>
+                <linearGradient id="dash-grad-0" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="var(--color-chart-1-a)"/>
+                  <stop offset="100%" stop-color="var(--color-chart-1-b)"/>
+                </linearGradient>
+                <linearGradient id="dash-grad-1" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="var(--color-chart-2-a)"/>
+                  <stop offset="100%" stop-color="var(--color-chart-2-b)"/>
+                </linearGradient>
+                <linearGradient id="dash-grad-2" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="var(--color-chart-3-a)"/>
+                  <stop offset="100%" stop-color="var(--color-chart-3-b)"/>
+                </linearGradient>
+                <linearGradient id="dash-grad-3" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="var(--color-chart-4-a)"/>
+                  <stop offset="100%" stop-color="var(--color-chart-4-b)"/>
+                </linearGradient>
+              </defs>
+              <circle class="donut-track" cx="130" cy="130" r="102"/>
+              <g data-donut-arcs></g>
+            </svg>
+
+            <div class="donut-center" aria-live="polite" aria-atomic="true">
+              <span class="donut-center__label" data-donut-label>Total pendapatan</span>
+              <span class="donut-center__value" data-donut-value>${esc(formatRupiah(pendapatan))}</span>
+              <span class="donut-center__share" data-donut-share>${total} order</span>
+            </div>
+          </div>
+
+          <ul class="donut-legend" data-donut-legend>
+            ${distribusiLayanan.map((seg, idx) => {
+              const pct = pendapatan > 0 ? ((seg.value / pendapatan) * 100).toFixed(1).replace('.', ',') : '0,0';
+              return `
+                <li>
+                  <button type="button" class="donut-legend__btn" data-donut-index="${idx}">
+                    <span class="donut-legend__left">
+                      <span class="donut-legend__swatch donut-legend__swatch--${idx % 4}" aria-hidden="true"></span>
+                      <span>${esc(seg.name)}</span>
+                    </span>
+                    <span class="donut-legend__right">
+                      <span class="donut-legend__pct">${pct}%</span>
+                      <span class="donut-legend__val">${esc(formatRupiah(seg.value))}</span>
+                    </span>
+                  </button>
+                </li>`;
+            }).join('')}
+          </ul>
+        </div>`;
 
     const html = `
       <section class="page-header">
@@ -524,39 +731,66 @@
           <h1>Dashboard operasional</h1>
         </div>
         <div class="page-header__actions">
-          <a class="btn btn--primary" href="#transaksi" data-nav="transaksi">Catat transaksi baru</a>
+          <a class="btn btn--primary" href="#transaksi" data-nav="transaksi">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            <span>Catat transaksi baru</span>
+          </a>
           <a class="btn btn--quiet" href="#rekap" data-nav="rekap">Lihat rekap laporan</a>
         </div>
       </section>
 
-      <section class="stat-strip" aria-label="Ringkasan transaksi">
-        <div class="stat-item"><span class="stat-item__label">Total transaksi</span><span class="stat-item__value">${total}</span><span class="stat-item__note">Seluruh order tercatat</span></div>
-        <div class="stat-item"><span class="stat-item__label">Sedang diproses</span><span class="stat-item__value">${proses.length}</span><span class="stat-item__note">Menunggu penyelesaian</span></div>
-        <div class="stat-item"><span class="stat-item__label">Transaksi selesai</span><span class="stat-item__value">${selesaiCount}</span><span class="stat-item__note">Siap atau sudah diambil</span></div>
-        <div class="stat-item"><span class="stat-item__label">Total pendapatan</span><span class="stat-item__value stat-item__value--accent">${esc(formatRupiah(pendapatan))}</span><span class="stat-item__note">Akumulasi nominal transaksi</span></div>
+      <section class="stats-showcase" aria-label="Ringkasan statistik operasional" data-stats-showcase>
+        <div class="stats-showcase__cell">
+          <span class="stats-showcase__value" data-count-to="${total}" data-count-format="int">${total}</span>
+          <span class="stats-showcase__label">Total transaksi</span>
+        </div>
+        <div class="stats-showcase__cell">
+          <span class="stats-showcase__value" data-count-to="${proses.length}" data-count-format="int">${proses.length}</span>
+          <span class="stats-showcase__label">Sedang diproses</span>
+        </div>
+        <div class="stats-showcase__cell">
+          <span class="stats-showcase__value" data-count-to="${selesaiCount}" data-count-format="int">${selesaiCount}</span>
+          <span class="stats-showcase__label">Transaksi selesai</span>
+        </div>
+        <div class="stats-showcase__cell">
+          <span class="stats-showcase__value stats-showcase__value--accent" data-count-to="${pendapatan}" data-count-format="rupiah">${esc(formatRupiah(pendapatan))}</span>
+          <span class="stats-showcase__label">Total pendapatan</span>
+        </div>
       </section>
 
       <div class="workspace-grid">
-        <section class="panel">
-          <div class="panel__head">
-            <h2 class="panel__title">Tarif layanan aktif</h2>
-            ${currentUser.role === 'admin' ? '<a class="btn btn--quiet" href="#layanan" data-nav="layanan">Kelola</a>' : ''}
-          </div>
-          <ul class="tariff-list">
-            ${db.layanan.map((l) => `
-              <li class="tariff-item">
-                <div class="tariff-item__info">
-                  <span class="tariff-item__name">${esc(l.nama_layanan)}</span>
-                  <span class="tariff-item__est">Estimasi ${esc(l.estimasi_selesai)}</span>
-                </div>
-                <span class="tariff-item__price">${esc(formatRupiah(l.harga_per_kg))}/kg</span>
-              </li>`).join('')}
-          </ul>
-        </section>
+        <div class="dashboard-side">
+          <section class="panel" aria-labelledby="donut-heading">
+            <div class="panel__head">
+              <h2 class="panel__title" id="donut-heading">Pendapatan per layanan</h2>
+            </div>
+            ${donutHtml}
+          </section>
 
-        <section class="panel">
+          <section class="panel" aria-labelledby="tarif-heading">
+            <div class="panel__head">
+              <h2 class="panel__title" id="tarif-heading">Tarif layanan aktif</h2>
+              ${currentUser.role === 'admin' ? '<a class="btn btn--quiet" href="#layanan" data-nav="layanan">Kelola</a>' : ''}
+            </div>
+            <ul class="tariff-list">
+              ${db.layanan.map((l) => `
+                <li class="tariff-item">
+                  <div class="tariff-item__info">
+                    <span class="tariff-item__name">${esc(l.nama_layanan)}</span>
+                    <span class="tariff-item__est">Estimasi ${esc(l.estimasi_selesai)}</span>
+                  </div>
+                  <span class="tariff-item__price">${esc(formatRupiah(l.harga_per_kg))}/kg</span>
+                </li>`).join('')}
+            </ul>
+          </section>
+        </div>
+
+        <section class="panel" aria-labelledby="antrean-heading">
           <div class="panel__head">
-            <h2 class="panel__title">Antrean cucian dalam proses</h2>
+            <h2 class="panel__title" id="antrean-heading">Antrean cucian dalam proses</h2>
             <span class="badge badge--proses">${proses.length} antrean</span>
           </div>
           ${proses.length === 0 ? '<div class="empty-state"><p class="empty-state__title">Semua cucian sudah selesai</p></div>' : `
@@ -583,6 +817,8 @@
     `;
 
     renderShell(html);
+    initDashboardStats();
+    initDashboardDonut(distribusiLayanan);
     root.querySelectorAll('[data-mark-selesai]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const tx = db.transaksi.find((t) => t.id === Number(btn.dataset.markSelesai));
