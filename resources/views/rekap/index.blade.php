@@ -8,10 +8,22 @@
     use App\Support\FormatHelper;
 
     $groupOptions = [
-        'status'  => 'Per status',
-        'layanan' => 'Per layanan',
-        'tanggal' => 'Per tanggal',
-        'halaman' => 'Per halaman (5)',
+        'status' => [
+            'label' => 'Per status',
+            'icon'  => '<circle cx="12" cy="12" r="9"/><polyline points="9 12 11.2 14.2 15.5 9.8"/>',
+        ],
+        'layanan' => [
+            'label' => 'Per layanan',
+            'icon'  => '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 12 12 17 22 12"/><polyline points="2 17 12 22 22 17"/>',
+        ],
+        'tanggal' => [
+            'label' => 'Per tanggal',
+            'icon'  => '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+        ],
+        'halaman' => [
+            'label' => 'Per halaman (5)',
+            'icon'  => '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+        ],
     ];
 
     $baseQuery = array_filter([
@@ -117,16 +129,20 @@
   </search>
 </section>
 
-<!-- Bar Kontrol Mode Pengelompokan (tersimpan di URL ?group=...) -->
+<!-- Floating Dock Ikon Mode Pengelompokan (hover untuk melebar & menampilkan label) -->
 <div class="rekap-toolbar" aria-label="Pengaturan tampilan rekap">
-  <nav class="group-tabs" aria-label="Kelompokkan transaksi">
-    @foreach ($groupOptions as $key => $label)
+  <nav class="group-dock" aria-label="Kelompokkan transaksi">
+    @foreach ($groupOptions as $key => $opt)
       <a
-        class="group-tab"
+        class="dock-item"
         href="{{ route('rekap.index', array_merge($baseQuery, ['group' => $key])) }}"
+        aria-label="{{ $opt['label'] }}"
         @if ($groupBy === $key) aria-current="page" @endif
       >
-        {{ $label }}
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{!! $opt['icon'] !!}</svg>
+        <span class="dock-item__label-wrap">
+          <span class="dock-item__label"><span class="dock-item__label-inner">{{ $opt['label'] }}</span></span>
+        </span>
       </a>
     @endforeach
   </nav>

@@ -926,10 +926,10 @@
     const totalSelesai = list.length - totalProses;
 
     const groupOpts = [
-      ['status', 'Per status'],
-      ['layanan', 'Per layanan'],
-      ['tanggal', 'Per tanggal'],
-      ['halaman', 'Per halaman (5)'],
+      ['status',  'Per status',      '<circle cx="12" cy="12" r="9"/><polyline points="9 12 11.2 14.2 15.5 9.8"/>'],
+      ['layanan', 'Per layanan',     '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 12 12 17 22 12"/><polyline points="2 17 12 22 22 17"/>'],
+      ['tanggal', 'Per tanggal',     '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'],
+      ['halaman', 'Per halaman (5)', '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>'],
     ];
 
     let contentMarkup = '';
@@ -1034,8 +1034,12 @@
       </section>
 
       <div class="rekap-toolbar">
-        <div class="group-tabs" role="group" aria-label="Kelompokkan transaksi">
-          ${groupOpts.map(([k, lbl]) => `<button type="button" class="group-tab" data-group-mode="${k}" aria-pressed="${rekapGroup === k ? 'true' : 'false'}">${lbl}</button>`).join('')}
+        <div class="group-dock" role="group" aria-label="Kelompokkan transaksi">
+          ${groupOpts.map(([k, lbl, icon]) => `
+            <button type="button" class="dock-item" data-group-mode="${k}" aria-label="${lbl}" aria-pressed="${rekapGroup === k ? 'true' : 'false'}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg>
+              <span class="dock-item__label-wrap"><span class="dock-item__label"><span class="dock-item__label-inner">${lbl}</span></span></span>
+            </button>`).join('')}
         </div>
         ${rekapGroup !== 'halaman' && list.length > 0 ? `
           <div class="group-controls">

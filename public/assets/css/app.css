@@ -1412,46 +1412,125 @@ dialog::backdrop {
   gap: var(--space-sm);
 }
 
-.group-tabs {
+.group-dock {
   display: inline-flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2xs);
   padding: var(--space-2xs);
-  border-radius: var(--radius-input);
-  background: var(--color-paper-2);
-  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-dock-bg);
+  border: var(--rule-hair) solid var(--color-dock-border);
 }
 
-.group-tab {
+.dock-item {
   display: inline-flex;
   align-items: center;
-  min-height: 2.25rem;
-  padding: 0 var(--space-sm);
+  justify-content: center;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0 var(--space-xs);
   border-radius: var(--radius-input);
-  color: var(--color-ink-2);
+  border: 0;
+  background: transparent;
+  color: var(--color-dock-ink-muted);
+  font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 500;
   text-decoration: none;
-  white-space: nowrap;
   cursor: pointer;
-  border: 0;
-  background: transparent;
-  transition: background-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
+  transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out);
+}
+
+.dock-item svg {
+  flex-shrink: 0;
+}
+
+.dock-item__label-wrap {
+  display: grid;
+  grid-template-columns: 0fr;
+  transform: translateY(2px);
+  filter: blur(2px);
+  clip-path: inset(0 100% 0 0);
+  transition:
+    transform var(--dur-short) var(--ease-out),
+    filter var(--dur-short) var(--ease-out),
+    clip-path var(--dur-short) var(--ease-out);
+}
+
+.dock-item__label {
+  overflow: hidden;
+  white-space: nowrap;
+  color: transparent;
+  transition: color var(--dur-short) var(--ease-out);
+}
+
+.dock-item__label-inner {
+  display: inline-block;
+  padding-inline-start: var(--space-xs);
+  padding-inline-end: var(--space-2xs);
+}
+
+/* Mode aktif: tanda latar hijau Dose + label tampil saat dock tidak sedang meng-hover item lain */
+.dock-item[aria-current="page"],
+.dock-item[aria-pressed="true"] {
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+
+.group-dock:not(:has(.dock-item:hover)) .dock-item[aria-current="page"] .dock-item__label-wrap,
+.group-dock:not(:has(.dock-item:hover)) .dock-item[aria-pressed="true"] .dock-item__label-wrap,
+.dock-item:hover .dock-item__label-wrap,
+.dock-item:focus-visible .dock-item__label-wrap {
+  grid-template-columns: 1fr;
+  transform: translateY(0);
+  filter: blur(0);
+  clip-path: inset(0 0 0 0);
+}
+
+.group-dock:not(:has(.dock-item:hover)) .dock-item[aria-current="page"] .dock-item__label,
+.group-dock:not(:has(.dock-item:hover)) .dock-item[aria-pressed="true"] .dock-item__label {
+  color: var(--color-accent-ink);
 }
 
 @media (hover: hover) {
-  .group-tab:hover {
-    background: var(--color-paper-3);
-    color: var(--color-ink);
+  .dock-item:hover {
+    background: var(--color-dock-item-hover);
+    color: var(--color-dock-ink);
+  }
+
+  .dock-item[aria-current="page"]:hover,
+  .dock-item[aria-pressed="true"]:hover {
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
+  }
+
+  .dock-item:hover .dock-item__label {
+    color: var(--color-dock-ink);
+  }
+
+  .dock-item[aria-current="page"]:hover .dock-item__label,
+  .dock-item[aria-pressed="true"]:hover .dock-item__label {
+    color: var(--color-accent-ink);
   }
 }
 
-.group-tab[aria-current="page"],
-.group-tab[aria-pressed="true"] {
-  background: var(--color-surface);
-  color: var(--color-ink);
-  box-shadow: var(--shadow-btn-quiet);
+.dock-item:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  color: var(--color-dock-ink);
+}
+
+.dock-item:focus-visible .dock-item__label {
+  color: var(--color-dock-ink);
+}
+
+.dock-item[aria-current="page"]:focus-visible .dock-item__label,
+.dock-item[aria-pressed="true"]:focus-visible .dock-item__label {
+  color: var(--color-accent-ink);
+}
+
+.dock-item:active {
+  transform: translateY(1px);
 }
 
 .group-controls {
