@@ -54,9 +54,10 @@
   --tracking-display: -0.015em; --display-weight: 700;
   --color-scribble: oklch(21% 0.025 170 / 0.85);
   --color-scribble-accent: oklch(42% 0.11 162 / 0.85);
-  --color-dock-bg: oklch(19% 0.024 170);
-  --color-dock-border: oklch(34% 0.028 168);
-  --color-dock-item-hover: oklch(27% 0.032 166);
-  --color-dock-ink: oklch(97% 0.008 88);
-  --color-dock-ink-muted: oklch(80% 0.016 155);
+  --color-dock-bg-start: oklch(99.4% 0.005 88);
+  --color-dock-bg-end: oklch(95.5% 0.022 158);
+  --color-dock-border: oklch(86.5% 0.022 140);
+  --color-dock-item-hover: oklch(92.5% 0.036 160);
+  --color-dock-ink: oklch(21% 0.025 170);
+  --color-dock-ink-muted: oklch(44% 0.026 165);
 }

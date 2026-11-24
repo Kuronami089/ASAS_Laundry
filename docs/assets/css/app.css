@@ -1418,7 +1418,7 @@ dialog::backdrop {
   gap: var(--space-2xs);
   padding: var(--space-2xs);
   border-radius: var(--radius-card);
-  background: var(--color-dock-bg);
+  background: linear-gradient(135deg, var(--color-dock-bg-start), var(--color-dock-bg-end));
   border: var(--rule-hair) solid var(--color-dock-border);
 }
 
