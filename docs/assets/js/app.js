@@ -245,6 +245,26 @@
   }
 
   /* ==========================================================================
+     6b. Kontrol Buka Semua / Lipat Semua Grup pada Rekap Transaksi
+     ========================================================================== */
+  const groupContainer = document.querySelector('[data-rekap-groups]');
+  const expandAllBtn = document.getElementById('expand-all-groups');
+  const collapseAllBtn = document.getElementById('collapse-all-groups');
+
+  if (groupContainer) {
+    expandAllBtn?.addEventListener('click', () => {
+      groupContainer.querySelectorAll('details.rekap-group').forEach((d) => {
+        d.open = true;
+      });
+    });
+    collapseAllBtn?.addEventListener('click', () => {
+      groupContainer.querySelectorAll('details.rekap-group').forEach((d) => {
+        d.open = false;
+      });
+    });
+  }
+
+  /* ==========================================================================
      7. Sinkronisasi ARIA & Validasi :user-invalid (modern-web-guidance)
      ========================================================================== */
   const supportsUserInvalid = CSS.supports('selector(:user-invalid)');

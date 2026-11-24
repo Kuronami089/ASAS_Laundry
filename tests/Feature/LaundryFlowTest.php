@@ -150,6 +150,20 @@ class LaundryFlowTest extends TestCase
             ->assertSee('Surya Pratama')
             ->assertDontSee('Budi Santoso');
 
+        // Mode pengelompokan Per Layanan, Per Tanggal, dan Per Halaman (5 baris)
+        $this->get('/rekap?group=layanan')
+            ->assertOk()
+            ->assertSee('Layanan Ekspres')
+            ->assertSee('Layanan Reguler');
+
+        $this->get('/rekap?group=tanggal')
+            ->assertOk()
+            ->assertSee('Subtotal');
+
+        $this->get('/rekap?group=halaman&page=2')
+            ->assertOk()
+            ->assertSee('halaman 2 dari 3');
+
         // Halaman cetak struk menampilkan detail lengkap
         $this->get("/rekap/{$trx->id}/struk")
             ->assertOk()

@@ -1,16 +1,31 @@
 @extends('layouts.app')
 
 @section('title', 'Rekap Transaksi Laundry')
-@section('description', 'Laporan transaksi laundry relasional (SQL JOIN) lengkap dengan status Proses/Selesai, cetak struk, dan total pendapatan.')
+@section('description', 'Laporan transaksi laundry relasional (SQL JOIN) terkelompok rapi per status, layanan, tanggal, atau halaman lengkap dengan cetak struk.')
 
 @section('content')
-@php use App\Support\FormatHelper; @endphp
+@php
+    use App\Support\FormatHelper;
+
+    $groupOptions = [
+        'status'  => 'Per status',
+        'layanan' => 'Per layanan',
+        'tanggal' => 'Per tanggal',
+        'halaman' => 'Per halaman (5)',
+    ];
+
+    $baseQuery = array_filter([
+        'q'          => $keyword,
+        'status'     => $status !== 'semua' ? $status : null,
+        'layanan_id' => $layananId > 0 ? $layananId : null,
+    ], static fn ($v) => $v !== null && $v !== '');
+@endphp
 
 <section class="page-header">
   <div class="page-header__title">
     <h1>Rekap transaksi laundry</h1>
     <p class="page-header__desc">
-      Laporan keuangan dan riwayat order yang ditarik langsung melalui relasi tabel transaksi dan layanan.
+      Laporan keuangan dan riwayat order yang dikelompokkan rapi agar mudah dipindai tanpa scroll panjang ke bawah.
     </p>
   </div>
   <div class="page-header__actions">
@@ -54,6 +69,8 @@
 <section class="panel panel--well filter-panel" aria-label="Filter rekap transaksi">
   <search>
     <form class="filter-form" method="GET" action="{{ route('rekap.index') }}">
+      <input type="hidden" name="group" value="{{ $groupBy }}">
+
       <div class="field">
         <label class="field__label" for="filter-q">Cari pelanggan atau kode</label>
         <input
@@ -93,23 +110,37 @@
       <div class="form-actions">
         <button type="submit" class="btn">Terapkan filter</button>
         @if ($hasActiveFilter)
-          <a class="btn btn--quiet" href="{{ route('rekap.index') }}">Reset</a>
+          <a class="btn btn--quiet" href="{{ route('rekap.index', ['group' => $groupBy]) }}">Reset</a>
         @endif
       </div>
     </form>
   </search>
 </section>
 
-<!-- Tabel Rekap Transaksi Laundry -->
-<section class="panel" aria-labelledby="tabel-rekap-heading">
-  <div class="panel__head">
-    <div>
-      <h2 class="panel__title" id="tabel-rekap-heading">Daftar seluruh transaksi</h2>
-      <p class="panel__meta">Menampilkan {{ $jumlahTransaksi }} baris hasil relasi transaksi dan layanan.</p>
-    </div>
-  </div>
+<!-- Bar Kontrol Mode Pengelompokan (tersimpan di URL ?group=...) -->
+<div class="rekap-toolbar" aria-label="Pengaturan tampilan rekap">
+  <nav class="group-tabs" aria-label="Kelompokkan transaksi">
+    @foreach ($groupOptions as $key => $label)
+      <a
+        class="group-tab"
+        href="{{ route('rekap.index', array_merge($baseQuery, ['group' => $key])) }}"
+        @if ($groupBy === $key) aria-current="page" @endif
+      >
+        {{ $label }}
+      </a>
+    @endforeach
+  </nav>
 
-  @if ($rekapTransaksi->isEmpty())
+  @if ($groupBy !== 'halaman' && $groupedRekap->isNotEmpty())
+    <div class="group-controls">
+      <button type="button" class="btn btn--quiet" id="expand-all-groups">Buka semua</button>
+      <button type="button" class="btn btn--quiet" id="collapse-all-groups">Lipat semua</button>
+    </div>
+  @endif
+</div>
+
+@if ($rekapTransaksi->isEmpty())
+  <section class="panel">
     <div class="empty-state">
       <p class="empty-state__title">
         {{ $hasActiveFilter ? 'Tidak ada transaksi yang cocok dengan filter' : 'Belum ada transaksi tercatat' }}
@@ -120,114 +151,83 @@
             : 'Mulai catat order pertama pelanggan di halaman Transaksi Laundry.' }}
       </p>
       @if ($hasActiveFilter)
-        <a class="btn btn--quiet" href="{{ route('rekap.index') }}">Reset filter</a>
+        <a class="btn btn--quiet" href="{{ route('rekap.index', ['group' => $groupBy]) }}">Reset filter</a>
       @else
         <a class="btn btn--quiet" href="{{ route('transaksi.index') }}">Catat transaksi baru</a>
       @endif
     </div>
-  @else
-    <div class="table-wrapper" tabindex="0" role="region" aria-labelledby="tabel-rekap-heading">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th scope="col">Kode &amp; pelanggan</th>
-            <th scope="col">Layanan &amp; tarif</th>
-            <th scope="col">Berat</th>
-            <th scope="col">Total biaya</th>
-            <th scope="col">Status</th>
-            <th scope="col">Waktu masuk</th>
-            <th scope="col" class="col-actions">Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          @foreach ($rekapTransaksi as $row)
-            <tr>
-              <th scope="row">
-                <span class="cell-primary">{{ $row->nama_pelanggan }}</span>
-                <span class="cell-sub mono">{{ $row->kode_transaksi }} | {{ $row->no_hp }}</span>
-              </th>
-              <td data-label="Layanan &amp; tarif">
-                <span class="cell-primary">{{ $row->nama_layanan }}</span>
-                <span class="cell-sub mono">{{ FormatHelper::rupiah($row->harga_saat_transaksi) }}/kg</span>
-              </td>
-              <td data-label="Berat" class="col-num">{{ FormatHelper::berat($row->berat_kg) }}</td>
-              <td data-label="Total biaya" class="col-num">{{ FormatHelper::rupiah($row->total_harga) }}</td>
-              <td data-label="Status">
-                @if ($row->status === 'Selesai')
-                  <span class="badge badge--selesai">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <circle cx="12" cy="12" r="10"/>
-                      <polyline points="9 12 11.5 14.5 16 9.5"/>
-                    </svg>
-                    <span>Selesai</span>
-                  </span>
-                @else
-                  <span class="badge badge--proses">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <circle cx="12" cy="12" r="10"/>
-                      <polyline points="12 6 12 12 16 14"/>
-                    </svg>
-                    <span>Proses</span>
-                  </span>
-                @endif
-              </td>
-              <td data-label="Waktu masuk">
-                <span class="cell-primary mono">{{ FormatHelper::tanggal($row->tanggal_masuk) }}</span>
-                @if (!empty($row->nama_petugas))
-                  <span class="cell-sub">Petugas: {{ $row->nama_petugas }}</span>
-                @endif
-              </td>
-              <td data-label="Aksi" class="col-actions">
-                <div class="row-actions">
-                  @if ($row->status === 'Proses')
-                    <form class="inline-form" method="POST" action="{{ route('transaksi.selesai', $row->id) }}">
-                      @csrf
-                      @method('PATCH')
-                      <button type="submit" class="btn btn--quiet">Selesai</button>
-                    </form>
-                  @endif
-
-                  <a
-                    class="btn btn--quiet btn--icon"
-                    href="{{ route('rekap.struk', $row->id) }}"
-                    target="_blank"
-                    rel="noopener"
-                    aria-label="Cetak struk {{ $row->kode_transaksi }}"
-                    title="Cetak struk"
-                  >
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/>
-                      <path d="M8 7h8"/>
-                      <path d="M8 11h8"/>
-                      <path d="M8 15h5"/>
-                    </svg>
-                  </a>
-
-                  <button
-                    type="button"
-                    class="btn btn--danger btn--icon"
-                    data-delete-tx-action="{{ route('transaksi.destroy', $row->id) }}"
-                    data-delete-tx-label="{{ $row->kode_transaksi }} ({{ $row->nama_pelanggan }})"
-                    aria-label="Hapus transaksi {{ $row->kode_transaksi }}"
-                    title="Hapus pesanan"
-                  >
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <polyline points="3 6 5 6 21 6"/>
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
-                      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                      <line x1="10" y1="11" x2="10" y2="17"/>
-                      <line x1="14" y1="11" x2="14" y2="17"/>
-                    </svg>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          @endforeach
-        </tbody>
-      </table>
+  </section>
+@elseif ($groupBy === 'halaman' && $paginatedRows)
+  <!-- Mode Per Halaman (maksimal 5 transaksi per halaman) -->
+  <section class="panel" aria-labelledby="tabel-rekap-heading">
+    <div class="panel__head">
+      <div>
+        <h2 class="panel__title" id="tabel-rekap-heading">Daftar transaksi (halaman {{ $paginatedRows->currentPage() }} dari {{ $paginatedRows->lastPage() }})</h2>
+        <p class="panel__meta">Menampilkan {{ $paginatedRows->firstItem() }}-{{ $paginatedRows->lastItem() }} dari {{ $paginatedRows->total() }} transaksi.</p>
+      </div>
     </div>
-  @endif
-</section>
+
+    @include('rekap.partials.table', ['rows' => $paginatedRows, 'headingId' => 'tabel-rekap-heading'])
+
+    @if ($paginatedRows->hasPages())
+      <nav class="pager" aria-label="Navigasi halaman rekap">
+        @if ($paginatedRows->onFirstPage())
+          <span class="btn btn--quiet" aria-disabled="true">Sebelumnya</span>
+        @else
+          <a class="btn btn--quiet" href="{{ $paginatedRows->previousPageUrl() }}">Sebelumnya</a>
+        @endif
+
+        <div class="pager__pages">
+          @for ($p = 1; $p <= $paginatedRows->lastPage(); $p++)
+            <a
+              class="pager__num"
+              href="{{ $paginatedRows->url($p) }}"
+              @if ($p === $paginatedRows->currentPage()) aria-current="page" @endif
+            >
+              {{ $p }}
+            </a>
+          @endfor
+        </div>
+
+        @if ($paginatedRows->hasMorePages())
+          <a class="btn btn--quiet" href="{{ $paginatedRows->nextPageUrl() }}">Berikutnya</a>
+        @else
+          <span class="btn btn--quiet" aria-disabled="true">Berikutnya</span>
+        @endif
+      </nav>
+    @endif
+  </section>
+@else
+  <!-- Mode Per Grup (<details> accordion bersih dengan subtotal tiap grup) -->
+  <div class="rekap-groups" data-rekap-groups>
+    @foreach ($groupedRekap as $index => $group)
+      @php $groupHeadingId = 'rekap-group-' . $index; @endphp
+      <details class="rekap-group" @if ($group['open']) open @endif>
+        <summary class="rekap-group__summary">
+          <div class="rekap-group__left">
+            <svg class="rekap-group__chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+            <h2 class="rekap-group__title" id="{{ $groupHeadingId }}">{{ $group['title'] }}</h2>
+            <span class="badge badge--{{ $group['badge'] }}">
+              <span class="mono">{{ $group['count'] }}</span>
+              <span>transaksi</span>
+            </span>
+          </div>
+
+          <div class="rekap-group__right">
+            <span class="rekap-group__subtotal-label">Subtotal</span>
+            <span class="rekap-group__subtotal">{{ FormatHelper::rupiah($group['subtotal']) }}</span>
+          </div>
+        </summary>
+
+        <div class="rekap-group__body">
+          @include('rekap.partials.table', ['rows' => $group['items'], 'headingId' => $groupHeadingId])
+        </div>
+      </details>
+    @endforeach
+  </div>
+@endif
 
 <!-- Dialog Konfirmasi Hapus Transaksi Native <dialog> -->
 <dialog id="confirm-delete-tx-dialog" class="confirm-dialog" aria-labelledby="delete-tx-title" closedby="any">

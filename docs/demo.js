@@ -71,6 +71,8 @@
   let strukId = null;
   let flash = null;
   let filters = { q: '', status: 'semua', layanan_id: '' };
+  let rekapGroup = 'status';
+  let rekapPage = 1;
 
   const root = document.getElementById('app-root');
   const confirmDialog = document.getElementById('demo-confirm-dialog');
@@ -833,6 +835,82 @@
     });
   }
 
+  function renderRekapTable(rows) {
+    return `
+      <div class="table-wrapper" tabindex="0">
+        <table class="data-table">
+          <thead><tr><th>Kode &amp; pelanggan</th><th>Layanan &amp; tarif</th><th>Berat</th><th>Total biaya</th><th>Status</th><th>Waktu masuk</th><th class="col-actions">Aksi</th></tr></thead>
+          <tbody>
+            ${rows.map((t) => {
+              const l = getLayanan(t.layanan_id);
+              return `<tr>
+                <th><span class="cell-primary">${esc(t.nama)}</span><span class="cell-sub mono">${esc(t.kode)} | ${esc(t.hp)}</span></th>
+                <td data-label="Layanan &amp; tarif"><span class="cell-primary">${esc(l.nama_layanan)}</span><span class="cell-sub mono">${esc(formatRupiah(t.harga))}/kg</span></td>
+                <td data-label="Berat" class="col-num">${esc(formatBerat(t.berat))}</td>
+                <td data-label="Total biaya" class="col-num">${esc(formatRupiah(t.total))}</td>
+                <td data-label="Status"><span class="badge ${t.status === 'Selesai' ? 'badge--selesai' : 'badge--proses'}">${esc(t.status)}</span></td>
+                <td data-label="Waktu masuk"><span class="cell-primary mono">${esc(formatTanggal(t.masuk))}</span><span class="cell-sub">Petugas: ${esc(t.petugas)}</span></td>
+                <td data-label="Aksi" class="col-actions">
+                  <div class="row-actions">
+                    ${t.status === 'Proses' ? `<button type="button" class="btn btn--quiet" data-mark-selesai="${t.id}">Selesai</button>` : ''}
+                    <button type="button" class="btn btn--quiet btn--icon" data-open-struk="${t.id}" aria-label="Cetak struk ${esc(t.kode)}" title="Cetak struk">
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/></svg>
+                    </button>
+                    <button type="button" class="btn btn--danger btn--icon" data-del-tx="${t.id}" aria-label="Hapus transaksi ${esc(t.kode)}" title="Hapus pesanan">
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function buildDemoGroups(list, mode, openAll) {
+    if (list.length === 0) return [];
+    if (mode === 'status') {
+      const out = [];
+      const proses = list.filter((t) => t.status === 'Proses');
+      const selesai = list.filter((t) => t.status === 'Selesai');
+      if (proses.length) {
+        out.push({ title: 'Sedang diproses', badge: 'proses', items: proses, open: true });
+      }
+      if (selesai.length) {
+        out.push({ title: 'Transaksi selesai', badge: 'selesai', items: selesai, open: openAll || out.length === 0 });
+      }
+      return out;
+    }
+    if (mode === 'layanan') {
+      const map = new Map();
+      list.forEach((t) => {
+        const name = getLayanan(t.layanan_id).nama_layanan;
+        if (!map.has(name)) map.set(name, []);
+        map.get(name).push(t);
+      });
+      return Array.from(map.entries()).map(([name, items], idx) => ({
+        title: `Layanan ${name}`,
+        badge: 'neutral',
+        items,
+        open: openAll || idx === 0,
+      }));
+    }
+    const map = new Map();
+    list.forEach((t) => {
+      const label = formatTanggal(t.masuk).split(',')[0];
+      if (!map.has(label)) map.set(label, []);
+      map.get(label).push(t);
+    });
+    return Array.from(map.entries()).map(([label, items], idx) => ({
+      title: label,
+      badge: 'neutral',
+      items,
+      open: openAll || idx === 0,
+    }));
+  }
+
   function renderRekap() {
     const q = filters.q.trim().toLowerCase();
     const list = db.transaksi.slice().reverse().filter((t) => {
@@ -842,15 +920,78 @@
       return true;
     });
 
+    const hasActiveFilter = Boolean(q || filters.status !== 'semua' || filters.layanan_id);
     const totalPendapatan = list.reduce((s, t) => s + t.total, 0);
     const totalProses = list.filter((t) => t.status === 'Proses').length;
     const totalSelesai = list.length - totalProses;
+
+    const groupOpts = [
+      ['status', 'Per status'],
+      ['layanan', 'Per layanan'],
+      ['tanggal', 'Per tanggal'],
+      ['halaman', 'Per halaman (5)'],
+    ];
+
+    let contentMarkup = '';
+    if (list.length === 0) {
+      contentMarkup = `<section class="panel"><div class="empty-state"><p class="empty-state__title">Tidak ada transaksi yang cocok</p><p class="empty-state__desc">Ubah kata kunci pencarian atau klik Reset untuk melihat seluruh transaksi.</p></div></section>`;
+    } else if (rekapGroup === 'halaman') {
+      const perPage = 5;
+      const totalPages = Math.max(1, Math.ceil(list.length / perPage));
+      rekapPage = Math.min(Math.max(1, rekapPage), totalPages);
+      const start = (rekapPage - 1) * perPage;
+      const slice = list.slice(start, start + perPage);
+
+      contentMarkup = `
+        <section class="panel">
+          <div class="panel__head">
+            <div>
+              <h2 class="panel__title">Daftar transaksi (halaman ${rekapPage} dari ${totalPages})</h2>
+              <p class="panel__meta">Menampilkan ${start + 1}-${start + slice.length} dari ${list.length} transaksi.</p>
+            </div>
+          </div>
+          ${renderRekapTable(slice)}
+          ${totalPages > 1 ? `
+            <nav class="pager" aria-label="Navigasi halaman rekap">
+              <button type="button" class="btn btn--quiet" data-page="${rekapPage - 1}" ${rekapPage <= 1 ? 'disabled' : ''}>Sebelumnya</button>
+              <div class="pager__pages">
+                ${Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => `<button type="button" class="pager__num" data-page="${p}" ${p === rekapPage ? 'aria-current="page"' : ''}>${p}</button>`).join('')}
+              </div>
+              <button type="button" class="btn btn--quiet" data-page="${rekapPage + 1}" ${rekapPage >= totalPages ? 'disabled' : ''}>Berikutnya</button>
+            </nav>` : ''}
+        </section>
+      `;
+    } else {
+      const groups = buildDemoGroups(list, rekapGroup, hasActiveFilter);
+      contentMarkup = `
+        <div class="rekap-groups" id="demo-rekap-groups">
+          ${groups.map((g) => {
+            const sub = g.items.reduce((s, t) => s + t.total, 0);
+            return `
+              <details class="rekap-group" ${g.open ? 'open' : ''}>
+                <summary class="rekap-group__summary">
+                  <div class="rekap-group__left">
+                    <svg class="rekap-group__chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                    <h2 class="rekap-group__title">${esc(g.title)}</h2>
+                    <span class="badge badge--${g.badge}"><span class="mono">${g.items.length}</span> <span>transaksi</span></span>
+                  </div>
+                  <div class="rekap-group__right">
+                    <span class="rekap-group__subtotal-label">Subtotal</span>
+                    <span class="rekap-group__subtotal">${esc(formatRupiah(sub))}</span>
+                  </div>
+                </summary>
+                <div class="rekap-group__body">${renderRekapTable(g.items)}</div>
+              </details>`;
+          }).join('')}
+        </div>
+      `;
+    }
 
     const html = `
       <section class="page-header">
         <div class="page-header__title">
           <h1>Rekap transaksi laundry</h1>
-          <p class="page-header__desc">Laporan keuangan dan riwayat order yang ditarik langsung melalui relasi tabel transaksi dan layanan.</p>
+          <p class="page-header__desc">Laporan keuangan dan riwayat order yang dikelompokkan rapi agar mudah dipindai tanpa scroll panjang ke bawah.</p>
         </div>
         <div class="page-header__actions">
           <a class="btn btn--primary" href="#transaksi" data-nav="transaksi">Catat transaksi baru</a>
@@ -892,38 +1033,18 @@
         </search>
       </section>
 
-      <section class="panel">
-        <div class="panel__head"><h2 class="panel__title">Daftar seluruh transaksi</h2></div>
-        <div class="table-wrapper" tabindex="0">
-          <table class="data-table">
-            <thead><tr><th>Kode &amp; pelanggan</th><th>Layanan &amp; tarif</th><th>Berat</th><th>Total biaya</th><th>Status</th><th>Waktu masuk</th><th class="col-actions">Aksi</th></tr></thead>
-            <tbody>
-              ${list.map((t) => {
-                const l = getLayanan(t.layanan_id);
-                return `<tr>
-                  <th><span class="cell-primary">${esc(t.nama)}</span><span class="cell-sub mono">${esc(t.kode)} | ${esc(t.hp)}</span></th>
-                  <td data-label="Layanan &amp; tarif"><span class="cell-primary">${esc(l.nama_layanan)}</span><span class="cell-sub mono">${esc(formatRupiah(t.harga))}/kg</span></td>
-                  <td data-label="Berat" class="col-num">${esc(formatBerat(t.berat))}</td>
-                  <td data-label="Total biaya" class="col-num">${esc(formatRupiah(t.total))}</td>
-                  <td data-label="Status"><span class="badge ${t.status === 'Selesai' ? 'badge--selesai' : 'badge--proses'}">${esc(t.status)}</span></td>
-                  <td data-label="Waktu masuk"><span class="cell-primary mono">${esc(formatTanggal(t.masuk))}</span><span class="cell-sub">Petugas: ${esc(t.petugas)}</span></td>
-                  <td data-label="Aksi" class="col-actions">
-                    <div class="row-actions">
-                      ${t.status === 'Proses' ? `<button type="button" class="btn btn--quiet" data-mark-selesai="${t.id}">Selesai</button>` : ''}
-                      <button type="button" class="btn btn--quiet btn--icon" data-open-struk="${t.id}" aria-label="Cetak struk ${esc(t.kode)}" title="Cetak struk">
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/></svg>
-                      </button>
-                      <button type="button" class="btn btn--danger btn--icon" data-del-tx="${t.id}" aria-label="Hapus transaksi ${esc(t.kode)}" title="Hapus pesanan">
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>`;
-              }).join('')}
-            </tbody>
-          </table>
+      <div class="rekap-toolbar">
+        <div class="group-tabs" role="group" aria-label="Kelompokkan transaksi">
+          ${groupOpts.map(([k, lbl]) => `<button type="button" class="group-tab" data-group-mode="${k}" aria-pressed="${rekapGroup === k ? 'true' : 'false'}">${lbl}</button>`).join('')}
         </div>
-      </section>
+        ${rekapGroup !== 'halaman' && list.length > 0 ? `
+          <div class="group-controls">
+            <button type="button" class="btn btn--quiet" id="demo-expand-all">Buka semua</button>
+            <button type="button" class="btn btn--quiet" id="demo-collapse-all">Lipat semua</button>
+          </div>` : ''}
+      </div>
+
+      ${contentMarkup}
     `;
 
     renderShell(html);
@@ -936,11 +1057,35 @@
         status: document.getElementById('f-status').value,
         layanan_id: document.getElementById('f-layanan').value,
       };
+      rekapPage = 1;
       render();
     });
     document.getElementById('f-reset')?.addEventListener('click', () => {
       filters = { q: '', status: 'semua', layanan_id: '' };
+      rekapPage = 1;
       render();
+    });
+
+    root.querySelectorAll('[data-group-mode]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        rekapGroup = btn.dataset.groupMode;
+        rekapPage = 1;
+        render();
+      });
+    });
+
+    root.querySelectorAll('[data-page]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        rekapPage = Number(btn.dataset.page);
+        render();
+      });
+    });
+
+    document.getElementById('demo-expand-all')?.addEventListener('click', () => {
+      document.querySelectorAll('#demo-rekap-groups details.rekap-group').forEach((d) => { d.open = true; });
+    });
+    document.getElementById('demo-collapse-all')?.addEventListener('click', () => {
+      document.querySelectorAll('#demo-rekap-groups details.rekap-group').forEach((d) => { d.open = false; });
     });
 
     root.querySelectorAll('[data-mark-selesai]').forEach((btn) => {

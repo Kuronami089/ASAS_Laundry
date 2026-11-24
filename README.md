@@ -37,7 +37,8 @@ Aplikasi web **Sistem Informasi Manajemen Laundry** yang dibangun menggunakan **
 
 ### 5. Rekap Transaksi Laundry, Filter Laporan, Cetak Struk & Hapus Pesanan
 - Query relasional **`SQL INNER JOIN`** antara tabel `transaksi`, `layanan`, dan `LEFT JOIN` ke `users` di [RekapController.php](app/Http/Controllers/RekapController.php) untuk menampilkan laporan dan total pendapatan secara akurat.
-- Filter berbasis URL (`?q=`, `?status=`, `?layanan_id=`) untuk pencarian pelanggan/kode transaksi, filter status (`Proses`/`Selesai`), dan filter jenis layanan.
+- Pengelompokan otomatis yang rapi agar tidak perlu scroll panjang saat data banyak: mode **Per Status** (`Sedang diproses` / `Transaksi selesai`), **Per Layanan**, **Per Tanggal** (dengan accordion `<details>`, subtotal per grup, dan tombol *Buka semua / Lipat semua*), serta mode **Per Halaman (5 baris)** dengan pagination.
+- Filter berbasis URL (`?q=`, `?status=`, `?layanan_id=`, `?group=`) untuk pencarian pelanggan/kode transaksi, filter status (`Proses`/`Selesai`), dan filter jenis layanan.
 - Badge status berbeda warna dengan ikon SVG aksesibel: **kuning** untuk `Proses` dan **hijau** untuk `Selesai`.
 - Dilengkapi **ikon struk** pada setiap baris untuk membuka halaman struk resmi siap cetak (`/rekap/{transaksi}/struk`) serta **ikon tempat sampah** dengan modal konfirmasi `<dialog>` untuk menghapus pesanan terpilih.
 

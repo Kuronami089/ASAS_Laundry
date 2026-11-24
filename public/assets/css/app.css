@@ -1402,7 +1402,203 @@ dialog::backdrop {
 }
 
 /* ============================================================================
-   13. Halaman Cetak Struk Transaksi (struk.php)
+   13. Pengelompokan Rekap Transaksi (<details> Grup) & Pagination
+   ============================================================================ */
+.rekap-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.group-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs);
+  border-radius: var(--radius-input);
+  background: var(--color-paper-2);
+  border: var(--rule-hair) solid var(--color-rule);
+}
+
+.group-tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-input);
+  color: var(--color-ink-2);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  transition: background-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .group-tab:hover {
+    background: var(--color-paper-3);
+    color: var(--color-ink);
+  }
+}
+
+.group-tab[aria-current="page"],
+.group-tab[aria-pressed="true"] {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-btn-quiet);
+}
+
+.group-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.rekap-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.rekap-group {
+  background: var(--color-surface);
+  border: var(--rule-hair) solid var(--color-rule);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.rekap-group__summary {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  cursor: pointer;
+  user-select: none;
+  background: var(--color-surface);
+  transition: background-color var(--dur-micro) var(--ease-out);
+}
+
+.rekap-group__summary::-webkit-details-marker {
+  display: none;
+}
+
+@media (hover: hover) {
+  .rekap-group__summary:hover {
+    background: var(--color-surface-hover);
+  }
+}
+
+.rekap-group__summary:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -3px;
+}
+
+.rekap-group__left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.rekap-group__chevron {
+  color: var(--color-muted);
+  flex-shrink: 0;
+  transition: transform var(--dur-micro) var(--ease-out);
+}
+
+.rekap-group[open] > .rekap-group__summary .rekap-group__chevron {
+  transform: rotate(90deg);
+}
+
+.rekap-group__title {
+  font-size: var(--text-title);
+  line-height: 1.2;
+}
+
+.rekap-group__right {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+}
+
+.rekap-group__subtotal-label {
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+
+.rekap-group__subtotal {
+  font-family: var(--font-outlier);
+  font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--color-accent-deep);
+  font-variant-numeric: tabular-nums;
+}
+
+.rekap-group__body {
+  padding: 0 var(--space-lg) var(--space-md);
+  border-block-start: var(--rule-hair) solid var(--color-rule);
+}
+
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding-block-start: var(--space-md);
+  border-block-start: var(--rule-hair) solid var(--color-rule);
+}
+
+.pager__pages {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.pager__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  padding: 0 var(--space-xs);
+  border-radius: var(--radius-input);
+  border: var(--rule-hair) solid var(--color-rule);
+  font-family: var(--font-outlier);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  color: var(--color-ink-2);
+  background: transparent;
+  cursor: pointer;
+  transition: background-color var(--dur-micro) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .pager__num:hover {
+    background: var(--color-paper-2);
+    color: var(--color-ink);
+  }
+}
+
+.pager__num[aria-current="page"] {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+  color: var(--color-ink);
+  font-weight: 500;
+}
+
+/* ============================================================================
+   14. Halaman Cetak Struk Transaksi (struk.php)
    ============================================================================ */
 .receipt-page {
   min-height: 100svh;
@@ -1520,6 +1716,14 @@ dialog::backdrop {
     padding: var(--space-md);
   }
 
+  .rekap-group__summary {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .rekap-group__body {
+    padding: 0 var(--space-md) var(--space-md);
+  }
+
   .stat-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     row-gap: var(--space-md);
@@ -1603,6 +1807,8 @@ dialog::backdrop {
   .mobile-topbar,
   .page-header__actions,
   .filter-panel,
+  .rekap-toolbar,
+  .pager,
   .col-actions,
   .alert,
   .receipt-toolbar {
