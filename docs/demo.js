@@ -288,7 +288,7 @@
               <img class="auth-brand__logo" src="assets/img/logo-asas-laundry.svg" width="360" height="272" alt="Logo ASAS Laundry">
               <div class="auth-brand__copy">
                 <h1 id="login-heading">Masuk ke aplikasi</h1>
-                <p class="text-muted">Demo interaktif GitHub Pages (kode penuh Laravel 13 + MySQL ada di repository).</p>
+                <p class="text-muted">Gunakan akun Admin atau Kasir untuk membuka dashboard operasional.</p>
               </div>
             </div>
 
@@ -315,7 +315,7 @@
             </form>
 
             <div class="demo-accounts">
-              <p class="demo-accounts__title">Akun demo interaktif (klik untuk mengisi form)</p>
+              <p class="demo-accounts__title">Akun pengujian lokal (klik untuk mengisi form)</p>
               <div class="demo-accounts__grid">
                 <button type="button" class="demo-btn" data-fill-user="admin" data-fill-pass="admin123">
                   <strong>Admin (Faqih Rachman)</strong>
@@ -459,7 +459,6 @@
             </span>
             <span class="brand-mark__text">
               <span class="brand-mark__name">ASAS Laundry</span>
-              <span class="brand-mark__sub">Mode Demo GitHub Pages</span>
             </span>
           </a>
           <nav aria-label="Menu aplikasi">${navMarkup}</nav>
@@ -468,7 +467,6 @@
               <span class="user-meta__name">${esc(currentUser.nama_lengkap)}</span>
               <span class="user-meta__role">Role ${roleLabel}</span>
             </div>
-            <button type="button" class="btn btn--quiet btn--full" id="reset-demo-btn">Reset data demo</button>
             <button type="button" class="btn btn--quiet btn--full" id="logout-btn">Keluar</button>
           </div>
         </aside>
