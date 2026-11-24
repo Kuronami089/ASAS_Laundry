@@ -12,9 +12,6 @@
 <section class="page-header">
   <div class="page-header__title">
     <h1>Data layanan cuci</h1>
-    <p class="page-header__desc">
-      Tambah, ubah, atau hapus paket layanan. Layanan yang masih terhubung dengan transaksi dilindungi agar laporan tetap konsisten.
-    </p>
   </div>
   <div class="page-header__actions">
     <a class="btn btn--quiet" href="{{ route('transaksi.index') }}">Ke form transaksi</a>
@@ -131,10 +128,7 @@
   <!-- Panel kanan: Tabel Daftar Layanan -->
   <section class="panel" aria-labelledby="daftar-layanan-heading">
     <div class="panel__head">
-      <div>
-        <h2 class="panel__title" id="daftar-layanan-heading">Daftar paket layanan</h2>
-        <p class="panel__meta">Total {{ $daftarLayanan->count() }} jenis layanan tersimpan di database.</p>
-      </div>
+      <h2 class="panel__title" id="daftar-layanan-heading">Daftar paket layanan</h2>
     </div>
 
     @if ($daftarLayanan->isEmpty())

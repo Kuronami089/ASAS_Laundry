@@ -9,9 +9,6 @@
 <section class="page-header">
   <div class="page-header__title">
     <h1>Transaksi laundry</h1>
-    <p class="page-header__desc">
-      Catat cucian masuk dengan perhitungan tarif otomatis berdasarkan jenis layanan dan berat, lalu tandai selesai saat cucian rampung.
-    </p>
   </div>
   <div class="page-header__actions">
     <a class="btn btn--quiet" href="{{ route('rekap.index') }}">Buka rekap transaksi</a>
@@ -165,10 +162,7 @@
   <!-- Panel kanan: Daftar Transaksi Aktif (Proses) -->
   <section class="panel" aria-labelledby="proses-heading">
     <div class="panel__head">
-      <div>
-        <h2 class="panel__title" id="proses-heading">Cucian sedang diproses</h2>
-        <p class="panel__meta">Total {{ $transaksiProses->count() }} transaksi menunggu perubahan status menjadi Selesai.</p>
-      </div>
+      <h2 class="panel__title" id="proses-heading">Cucian sedang diproses</h2>
     </div>
 
     @if ($transaksiProses->isEmpty())

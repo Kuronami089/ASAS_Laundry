@@ -523,7 +523,6 @@
       <section class="page-header">
         <div class="page-header__title">
           <h1>Dashboard operasional</h1>
-          <p class="page-header__desc">Pantau cucian yang sedang diproses, selesaikan order yang siap diambil, dan cek pendapatan secara langsung.</p>
         </div>
         <div class="page-header__actions">
           <a class="btn btn--primary" href="#transaksi" data-nav="transaksi">Catat transaksi baru</a>
@@ -558,10 +557,7 @@
 
         <section class="panel">
           <div class="panel__head">
-            <div>
-              <h2 class="panel__title">Antrean cucian dalam proses</h2>
-              <p class="panel__meta">Klik Tandai selesai saat cucian telah rampung dikerjakan.</p>
-            </div>
+            <h2 class="panel__title">Antrean cucian dalam proses</h2>
             <span class="badge badge--proses">${proses.length} antrean</span>
           </div>
           ${proses.length === 0 ? '<div class="empty-state"><p class="empty-state__title">Semua cucian sudah selesai</p></div>' : `
@@ -609,7 +605,6 @@
       <section class="page-header">
         <div class="page-header__title">
           <h1>Data layanan cuci</h1>
-          <p class="page-header__desc">Tambah, ubah, atau hapus paket layanan. Layanan yang masih terhubung dengan transaksi dilindungi agar laporan tetap konsisten.</p>
         </div>
       </section>
 
@@ -733,7 +728,6 @@
       <section class="page-header">
         <div class="page-header__title">
           <h1>Transaksi laundry</h1>
-          <p class="page-header__desc">Catat cucian masuk dengan perhitungan tarif otomatis berdasarkan jenis layanan dan berat.</p>
         </div>
         <div class="page-header__actions"><a class="btn btn--quiet" href="#rekap" data-nav="rekap">Buka rekap transaksi</a></div>
       </section>
@@ -991,7 +985,6 @@
       <section class="page-header">
         <div class="page-header__title">
           <h1>Rekap transaksi laundry</h1>
-          <p class="page-header__desc">Laporan keuangan dan riwayat order yang dikelompokkan rapi agar mudah dipindai tanpa scroll panjang ke bawah.</p>
         </div>
         <div class="page-header__actions">
           <a class="btn btn--primary" href="#transaksi" data-nav="transaksi">Catat transaksi baru</a>

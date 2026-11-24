@@ -36,9 +36,6 @@
 <section class="page-header">
   <div class="page-header__title">
     <h1>Rekap transaksi laundry</h1>
-    <p class="page-header__desc">
-      Laporan keuangan dan riwayat order yang dikelompokkan rapi agar mudah dipindai tanpa scroll panjang ke bawah.
-    </p>
   </div>
   <div class="page-header__actions">
     <a class="btn btn--primary" href="{{ route('transaksi.index') }}">Catat transaksi baru</a>
